@@ -170,6 +170,7 @@ function fEnd(){
 	header("Content-Type: text/xml;charset=ISO-8859-1");
 	header("Cache-Control: no-store, no-cache, must-revalidate");
 	set_time_limit(0);
+	include ("bgloos_config.php");
 	$xxx=fopen ("./bgloos.xml","a");
 	fwrite($xxx,"</blog>");
 	fclose($xxx);
@@ -338,7 +339,22 @@ fwrite($oFileOut,$rt);
 		foreach ($aImageUrl As $tp)
 			{
 			$count++;
-			wget ($oFileOut,$tp[0],$tp[1]);
+			$iLength=wget ($tp[0],"./bgloos_temp.xxx");
+         	list($width, $height, $type, $attr) = getimagesize("./bgloos_temp.xxx");
+	$rt="<attachment size=\"".$iLength."\" width=\"".$width."\" height=\"".$height."\">";
+	$rt.="<name>".$tp[1]."</name>";
+	$rt.="<label>".$tp[1]."</label>";
+	$rt.="<attached>1142295873</attached>";
+	$rt.="<content>";
+   fwrite($oFileOut,$rt);
+	$fp = fopen("./bgloos_temp.xxx", 'r');
+	while (!feof($fp)) {
+		fwrite($oFileOut,base64_encode(fread($fp, 3 * 1024)));
+	}
+fclose($fp);
+$rt="</content>";
+$rt.="</attachment>";
+		fwrite($oFileOut,$rt);
 		}
 	}
 $rt="</post>\n";
@@ -382,7 +398,7 @@ function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
          $name=escape_string($name);
          $text=escape_string($text);
 
-
+$url=escape_string($url);
 $sTemp="<comment>";
 $sTemp.="<commenter>";
 $sTemp.="<name>".$name."</name>";
@@ -457,6 +473,7 @@ function fMakeTrackbackSql($sHost,$i,$postcount,$sUserKey)
 			$sContent=adjustUTF8(iconv("cp949","utf-8",$sContent));
 
 	      $sContent=escape_string($sContent);
+         $sUrl=escape_string($sUrl);
 	      $sBlogName=escape_string($sBlogName);
 	      $sTitle=escape_string($sTitle);
 
@@ -498,10 +515,7 @@ function escape_string($sString) {
 	return htmlspecialchars($sString);
 }
 
-
-
-function wget($oFile,$url,$filename) {
-	global $sUserKey;
+function wget($url,$fp) {
 	$sIpPds="211.239.119.179";
 	$sIpPds1="211.239.119.167";
 	$sIpPds2="211.239.119.164";
@@ -522,39 +536,25 @@ function wget($oFile,$url,$filename) {
 		echo "$errstr ($errno)<br>\n";
 		exit(0);
 	} else {
-		fputs ($fd, "GET ".$uri." HTTP/1.1\r\nHost: ".$sHost."\r\nCookie: check=1; editor=opt=1; u=key=".$sUserKey."\r\n\r\n");
+		fputs ($fd, "GET ".$uri." HTTP/1.1\r\nHost: ".$sHost."\r\n\r\n");
 	}
-
+	$xxx=fopen ($fp,"w");
+	if (!$xxx) {
+		echo "$errstr ($errno)<br>\n";
+		exit(0);
+	}
 	while(!feof($fd)) {
 		$buffer=fgets($fd);
 		if(strpos($buffer,"Content-Length")!==false) {$iLength=substr($buffer,16);}
 		if($buffer=="\r\n") {break;}
 	}
 	$iLength=(int)$iLength;
-	$rt="<attachment size=\"".$iLength."\" width=\"0\" height=\"0\">";
-	$rt.="<name>".$filename."</name>";
-	$rt.="<label>".$filename."</label>";
-	$rt.="<attached>1142295873</attached>";
-	$rt.="<content>";
-		fwrite($oFile,$rt);
-	$tFile=fopen ("./bgloos_temp.xxx","w");
 	for($i=0;$i<$iLength;$i++) {
-		fwrite($tFile,fgetc($fd));
+		fwrite($xxx,fgetc($fd));
 	}
-	fclose($tFile);
-	$fp = fopen("./bgloos_temp.xxx", 'r');
-	while (!feof($fp)) {
-		fwrite($oFile,base64_encode(fread($fp, 3 * 1024)));
-	}
-fclose($fp);
-$rt="</content>";
-$rt.="</attachment>";
-		fwrite($oFile,$rt);
+	fclose($xxx);
 	return $iLength;
 }
-
-
-
 
 function init(){
 	set_time_limit(0);
@@ -564,9 +564,9 @@ function init(){
 
 	$sEgloosId=$_GET['egloosid'];
 	$sEgloosPass=$_GET['egloospass'];
-   $bImageDownload=$_GET['id'];
+	$bImageDownload=$_GET['id'];
 	$bImageResize=$_GET['ir'];
-   $iResizeWidth=$_GET['rw'];
+	$iResizeWidth=$_GET['rw'];
 	
 
 	//기존의 파일 정리
@@ -600,30 +600,33 @@ function init(){
 	fclose($fd);
 
 
-	//글 관리 첫 페이지 다운로드
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
-	if (!$fd) {
-		return 2;
-	} else {
-		fputs ($fd, "GET /adm/chgegloo_post.asp?eid=".$sBlogid."&pagecount=100 HTTP/1.1\r\nHost: www.egloos.com\r\nCookie: check=1; editor=opt=1; u=key=".$sUserKey."\r\n\r\n");
-	}
-	$buffer="x";
-	while ($buffer && !feof($fd)) {
-		$buffer = fgets($fd, 4096);
-		if (preg_match('/JAVASCRIPT/',$buffer,$aMatch)) break;
-	}
-	//글 관리 첫 페이지 다운로드
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
-	if (!$fd) {
-		return 2;
-	} else {
-		fputs ($fd, "GET /adm/chgegloo_post.asp?eid=".$sBlogid."&pagecount=100 HTTP/1.1\r\nHost: www.egloos.com\r\nCookie: check=1; editor=opt=1; u=key=".$sUserKey."\r\n\r\n");
-	}
-	$buffer="x";
-	while ($buffer && !feof($fd)) {
-		$buffer = fgets($fd, 4096);
-		if (preg_match('/JAVASCRIPT/',$buffer,$aMatch)) break;
-	}
+
+
+	//블로그 제목 및 아이콘 다운로드
+        $fd = @fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+        if (!$fd) {
+                return 2;
+        } else {
+                fputs ($fd, "GET /adm/chgegloo_info.asp?eid=".$sBlogid." HTTP/1.1\r\nHost: www.egloos.com\r\nCookie: check=1; editor=opt=1; u=key=".$sUserKey."\r\n\r\n");
+        }
+        $buffer="x";
+        while ($buffer && !feof($fd)) {
+                $buffer = fgets($fd, 4096);
+                if (preg_match('/NAME=ename SIZE=20 VALUE=\"([^\"]*)/',$buffer,$aMatch))
+                {
+                        $sBlogTitle=$aMatch[1];
+                }
+                if (preg_match('/NAME=edesc SIZE=20 VALUE=\"([^\"]*)/',$buffer,$aMatch))
+                {
+                        $sBlogDesc=$aMatch[1];
+                }
+                if (preg_match('/NAME=preview SRC=\'([^\']*)\'/',$buffer,$aMatch))
+                {
+                        $sIconUrl=$aMatch[1];
+                        break;
+                }
+        }
+        fclose($fd);
 
 	//글 관리 첫 페이지 다운로드
 	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
@@ -724,9 +727,23 @@ function init(){
 	fwrite($oConfigFile,"?>\n");
 	fclose($oConfigFile);
 
+//	wget ($oFileOut,$tp[0],$tp[1]);
 	$xxx=fopen ("./bgloos.xml","w");
 	fwrite($xxx,"<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n");
 	fwrite($xxx,"<blog type=\"tattertools/1.0\" migrational=\"true\">\n");
+//<setting><title>님하는 어느 별에서 왔심?</title><description>테스트</description><banner><name>175040.jpg</name><content>
+	fwrite($xxx,"<setting>\n");
+	fwrite($xxx,"<title>".escape_string(adjustUTF8(iconv('cp949','utf-8',$sBlogTitle)))."</title>\n");
+	fwrite($xxx,"<description>".escape_string(adjustUTF8(iconv('cp949','utf-8',$sBlogDesc)))."</description>\n");
+   fwrite($xxx,"<banner><name>175040.jpg</name><content>\n");
+
+   $iLength=@wget($sIconUrl,"./bgloos_temp.xxx");
+	$fp = fopen("./bgloos_temp.xxx", 'r');
+	while (!feof($fp)) {
+		fwrite($xxx,base64_encode(fread($fp, 3 * 1024)));
+	}
+   fclose($fp);
+   fwrite($xxx,"</content></banner></setting>\n");
 	foreach($aCategory as $key =>$tp)
 	{
 		fwrite($xxx,"<category><name>".adjustUTF8(iconv("cp949","utf-8",$tp))."</name><priority>".$key."</priority></category>\n");
@@ -848,7 +865,7 @@ function start_index() {
 
 			function complete() {
 				var idiv = window.document.getElementById("progress");
-				idiv.innerHTML = "Mission Complete!<br/>태터툴즈 관리자 데이터 복구 페이지에서 <br/>http://<?php echo $_SERVER["SERVER_NAME"]?><?php echo substr($_SERVER["PHP_SELF"],0,-9);?>/bgloos.xml<br/>을 입력해서 복구하기 바람";
+				idiv.innerHTML = "Mission Complete!<br/>태터툴즈 관리자 데이터 복구 페이지에서 <br/>http://<?php echo $_SERVER["SERVER_NAME"]?><?php preg_match("/^.*\//",$_SERVER["PHP_SELF"],$matches); echo $matches[0];?>bgloos.xml<br/>을 입력해서 복구하기 바람";
 				window.status = "완료";
 				var bttn = window.document.getElementById("taskbutton");
 				bttn.disabled = false;
