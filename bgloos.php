@@ -17,11 +17,10 @@
 
 //Main
 
-$sToEncoding="cp949";
-
+$sFromEncoding="cp949";
 if (!function_exists('iconv')) {
 include "./iconv.php";
-$sToEncoding="EUC-KR";
+$sFromEncoding="EUC-KR";
 }
 
 
@@ -42,7 +41,7 @@ exit(0);
 
 function fProcess(){
 	set_time_limit(0);
-   global $bImageResize,$iResizeWidth,$sNick,$bImageDownload;
+   global $bImageResize,$iResizeWidth,$sNick,$bImageDownload,$sFromEncoding;
 	include ("bgloos_config.php");
 	$pid=$_GET['postid'];
 	$xxx=fopen ("./bgloos.sql","a");
@@ -62,7 +61,7 @@ function fProcess(){
 
 function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory)
 {
-	global $bImageResize,$iResizeWidth,$sNick,$bImageDownload;
+	global $bImageResize,$iResizeWidth,$sNick,$bImageDownload,$sFromEncoding;
 	$aTempCmt=fMakeCommentSql($sHost,$iPostNumber,$c,$sUserKey);
 
 //Comment 처리
@@ -115,10 +114,10 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory)
 	while ($buffer) {
 		$buffer = fgets($fd, 65536);
 		if (preg_match('/Edit\.content/',$buffer,$aMatch)) {
-			$sContent=iconv('cp949','utf8',substr($buffer,17,-4));
+			$sContent=iconv($sFromEncoding,'utf-8',substr($buffer,17,-4));
 		}
 		if (preg_match('/Edit\.mcontent/',$buffer,$aMatch)) {
-			$mcontent=iconv('cp949','utf8',substr($buffer,18,-4));
+			$mcontent=iconv($sFromEncoding,'utf-8',substr($buffer,18,-4));
 		}
 
 		if (preg_match('/name=rdate/',$buffer,$aMatch)) {
@@ -127,12 +126,12 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory)
 		}
 		if (preg_match('/subject\\"/',$buffer,$aMatch)) {
 			preg_match('/VALUE=\\"([^\\"]*)\\"/',$buffer,$aMatch);
-			$sSubject=iconv('cp949','utf8',$aMatch[1]);
+			$sSubject=iconv($sFromEncoding,'utf-8',$aMatch[1]);
 		}
 
 		if (preg_match('/NAME=moresubject/',$buffer,$aMatch)) {
 			preg_match('/VALUE=\\"([^\\"]*)\\"/',$buffer,$aMatch);
-			$sMoreSubject=iconv('cp949','utf8',$aMatch[1]);
+			$sMoreSubject=iconv($sFromEncoding,'utf-8',$aMatch[1]);
 		}
 
 		if (preg_match('/NAME=openflag/',$buffer,$aMatch)) {
@@ -216,6 +215,7 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory)
 
 function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
 	{
+      global $sFromEncoding;
 	$xxx=fopen ("./bgloos_cmt.php","r");
 	$count=fgets($xxx,128);
 	fclose($xxx);
@@ -238,14 +238,14 @@ function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
 			{
 			case '<i':
 			preg_match('/strong>([^<]*)</',$c,$aMatch);
-			$name=iconv($sToEncoding,"utf8",$aMatch[1]);
+			$name=iconv($sFromEncoding,"utf-8",$aMatch[1]);
 			$secret=(preg_match('/security3.gif\\\"/',$c)?1:0);
 			preg_match('/href=\\\\"([^"]*)\\\\" tit/',$c,$aMatch);
-			$url=iconv($sToEncoding,"utf8",$aMatch[1]);
+			$url=iconv($sFromEncoding,"utf-8",$aMatch[1]);
 			$time=strtotime(substr($c,strpos($c,"/a> at ")+7,17));
 			break;
 			case '</':
-			$text=preg_replace("/<br\/>/","\\r\\n",iconv($sToEncoding,"utf8",substr($c,138,-16)));
+			$text=preg_replace("/<br\/>/","\\r\\n",iconv($sFromEncoding,"utf-8",substr($c,138,-16)));
 			if(preg_match('/^(.*)<\/div><\/div>/',$text,$aMatch)) {$text=$aMatch[1];} //마지막 코멘트 체크
 
          $name=escape_string($name);
@@ -272,6 +272,7 @@ function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
 
 function fMakeTrackbackSql($sHost,$i,$postcount,$sUserKey)
 	{
+      global $sFromEncoding;
 	$xxx=fopen ("./bgloos_cmt.php","r");
 	$count=fgets($xxx,128);
 	fclose($xxx);
@@ -314,9 +315,9 @@ function fMakeTrackbackSql($sHost,$i,$postcount,$sUserKey)
 			$buffer = fgett($fd);
 			$buffer = fgett($fd);
 
-			$sBlogName=iconv($sToEncoding,"utf8",$sBlogName);
-			$sTitle=iconv($sToEncoding,"utf8",$sTitle);
-			$sContent=iconv($sToEncoding,"utf8",$sContent);
+			$sBlogName=iconv($sFromEncoding,"utf-8",$sBlogName);
+			$sTitle=iconv($sFromEncoding,"utf-8",$sTitle);
+			$sContent=iconv($sFromEncoding,"utf-8",$sContent);
 
 	      $sContent=escape_string($sContent);
 	      $sBlogName=escape_string($sBlogName);
@@ -398,7 +399,8 @@ function wget($url,$fp) {
 
 
 function init(){
-	include "config.php";
+//	include "config.php";
+global $sFromEncoding;
 	set_time_limit(0);
 	setlocale(LC_TIME, "C");
 	header("Content-Type: text/xml;charset=ISO-8859-1");
@@ -411,9 +413,6 @@ function init(){
 	$bImageResize=$_GET['ir'];
    $iResizeWidth=$_GET['rw'];
 	
-	if ($sMysqlPass!=$pass) {
-		return -1;
-	}
 
 	//기존의 파일 정리
 	$xxx=fopen ("./bgloos_tb.php","w");
@@ -585,7 +584,9 @@ function init(){
 	$xxx=fopen ("./bgloos.sql","w");
 	foreach($aCategory as $key =>$tp)
 	{
-		fwrite($xxx,"insert into t3_[##_dbid_##]_ct1 (no, sortno, label, cnt) values ('".$key."', '".$c."', '".iconv($sToEncoding,"utf8",$tp)."', '0')\n");
+		fwrite($xxx,"insert into t3_[##_dbid_##]_ct1 (no, sortno, label, cnt) values ('".$key."', '".$c."', '".iconv($sFromEncoding,"utf-8",$tp)."', '0')\n");
+      //echo iconv($sFromEncoding,"utf-8",$tp);
+      //echo $tp;
 	}
 	fclose($xxx);
 	return 0;
