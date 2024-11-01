@@ -1,19 +1,16 @@
 <?php
-// bgloos001 alpha version 0.4
+// bgloos001 Beta 1.1
 // by gofeel - gofeel@gmail.com
 // http://bgloos.kldp.net
 
 // 이 프로그램은 GNU General Public License Ver 2로 배포 됩니다.
 // 라이센스에 대한 자세한 내용은 http://www.gnu.org/copyleft/gpl.html에 있습니다
 // 이 프로그램은 태터 마이그레이터의 iconv함수를 사용하고 있습니다.
-// http://www.tatterstory.net/ 에서 관련된 정보를 얻으실수 있습니다.
+// 태터 마이그래이터의 정보는 http://www.tatterstory.net/ 에서 얻으실 수 있습니다.
 
+define("EGLOOS_WWW_IP", "211.239.119.245");
 
-
-// --------------------절 취 선--------------------
-// 이 아래는 php를 잘 모르시는 분이나
-// 철이 덜 든 어른 및 어린이는 손대지 않는 것을 추천합니다.
-
+//From TT Migrator
 function adjustUTF8($str) {
 	$strlen = strlen($str);
 	for ($i = 0; $i < $strlen; $i ++) {
@@ -52,6 +49,8 @@ function adjustUTF8($str) {
 	}
 	return $str;
 }
+
+//From TT Migrator
 if (!function_exists('iconv')) {
 function iconv($from, $to, $str) {
 	$from = strtoupper($from);
@@ -146,51 +145,47 @@ function iconv($from, $to, $str) {
 }
 }
 
+
+
+
+
 //Main
 
 switch ($_GET['action']) {
 case "init":
-	$iTemp=init();
+	$iTemp=fInit();
 	echo "<message>".$iTemp."</message>";
 	break;
 case "getpost":
 	fProcess();
 	break;
 case "end":
-	fEnd();
+  	$iTemp=fEnd();
+	echo "<message>".$iTemp."</message>";
 	break;
 default:
-	start_index();
+	fShowIndex();
 }
 
 exit(0);
 
 
-function fEnd(){
-	header("Content-Type: text/xml;charset=ISO-8859-1");
-	header("Cache-Control: no-store, no-cache, must-revalidate");
-	set_time_limit(0);
-	include ("bgloos_config.php");
-	$xxx=fopen ("./bgloos.xml","a");
-	fwrite($xxx,"</blog>");
-	fclose($xxx);
-}
 
 function fProcess(){
 	set_time_limit(0);
    global $bImageResize,$iResizeWidth,$sNick,$bImageDownload;
 	include ("bgloos_config.php");
 	$pid=$_GET['postid'];
-	$xxx=fopen ("./bgloos.xml","a");
+	$xxx=@fopen ("./bgloos.xml","a");
 	$sTemp=fGetPost($sHost,$aPost[$pid],$pid+1,$sUserKey,$sBlogid,$aPostCategory,$xxx);
 	$pid++;
 	header("Content-Type: text/xml;charset=ISO-8859-1");
 	header("Cache-Control: no-store, no-cache, must-revalidate");
-	echo "<xml>";
+	echo "<process>";
 	echo "<message>".$pid."</message>";
 	echo "<percent>".sprintf("%.2f",$pid/count($aPost)*100)."</percent>";
 	echo "<totalpost>".count($aPost)."</totalpost>";
-	echo "</xml>";
+	echo "</process>";
 	fclose($xxx);
 	exit();
 }
@@ -202,7 +197,7 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory,$oFil
 
 //Comment 처리
 	$sComment="";
-	$aTempCmt=fMakeCommentSql($sHost,$iPostNumber,$c,$sUserKey);
+	$aTempCmt=fMakeCommentString($sHost,$iPostNumber,$c,$sUserKey);
 	if(is_array($aTempCmt))
 	{
 		foreach ($aTempCmt as $sTemp)
@@ -219,7 +214,7 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory,$oFil
 
 //Trackback 처리
 	$sTrackBack="";
-	$aTemptb=fMakeTrackbackSql($sHost,$iPostNumber,$c,$sUserKey);
+	$aTemptb=fMakeTrackbackString($sHost,$iPostNumber,$c,$sUserKey);
 	if(is_array($aTemptb)) {
 		foreach ($aTemptb as $sTemp)
 		{
@@ -234,7 +229,7 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory,$oFil
 
 //본문 처리
 
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+	$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 	if (!$fd) {
 		echo "$errstr ($errno)<br>\n";
 		}
@@ -303,7 +298,6 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory,$oFil
 		$tp[2]=str_replace("\\","",$tp[2]);
 		if ($bImageDownload){
 		$sContent=str_replace($tp[0],"[##_1".$cPostion."|".$tp[1]."|width=\"".$tp[4]."\" height=\"".$tp[5]."\"|_##]",$sContent);
-		//http://pds.egloos.com/pds/1/200502/22/56/a0015856_0334.jpg
 		$aImageUrl[]=array(0=>"http://".($tp[6]=="#]"?"pds":substr($tp[6],1,-2)).".egloos.com/pds/1/".$tp[2].$tp[1],1=>$tp[1]);
 		}
 		else
@@ -317,8 +311,8 @@ function fGetPost($sHost,$iPostNumber,$c,$sUserKey,$sBlogid,$aPostCategory,$oFil
 
 //escape
 
-   $sContent=escape_string($sContent);
-   $sSubject=escape_string($sSubject);
+   $sContent=fEscapeString($sContent);
+   $sSubject=fEscapeString($sSubject);
 
 $rt="<post>";
 $rt.="<id>".$c."</id>";
@@ -329,7 +323,7 @@ $rt.="<location>/</location>";
 $rt.="<acceptComment>".$bComment."</acceptComment>";
 $rt.="<acceptTrackback>".$bTrackBack."</acceptTrackback>";
 $rt.="<published>".$iTime."</published>";
-$rt.="<category>".escape_string(adjustUTF8(iconv('cp949','utf-8',$aPostCategory[$iPostNumber])))."</category>";
+$rt.="<category>".fEscapeString(adjustUTF8(iconv('cp949','utf-8',$aPostCategory[$iPostNumber])))."</category>";
 $rt.="<logs />";
 $rt.=$sComment;
 $rt.=$sTrackBack;
@@ -347,7 +341,7 @@ fwrite($oFileOut,$rt);
 	$rt.="<attached>1142295873</attached>";
 	$rt.="<content>";
    fwrite($oFileOut,$rt);
-	$fp = fopen("./bgloos_temp.xxx", 'r');
+	$fp = @fopen("./bgloos_temp.xxx", 'r');
 	while (!feof($fp)) {
 		fwrite($oFileOut,base64_encode(fread($fp, 3 * 1024)));
 	}
@@ -363,10 +357,18 @@ fwrite($oFileOut,$rt);
 }
 
 
+//Function fMakeCommentString
+//주어진 포스트의 코멘트를 처리합니다.
+//http://(url).egloos.com/cXXXXX를 읽어와서 처리하는 형식입니다.
+//Tab으로 문서를 구분해서 읽습니다.
+//ip 추적은 불가능하므로 127.0.0.1=localhost로 처리합니다.
+//password 역시 추적 불가능하므로 임의의 String으로 대치합니다.
+//처리한 코멘트를 하나씩 xml형식의 String으로 만듭니다.
+//String의 Array를 돌려줍니다.
 
-function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
+function fMakeCommentString($sHost,$i,$postcount,$sUserKey)
 	{
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+	$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 	if (!$fd) {
 		echo $errstr." (".$errno.")<br>\n";
 	} else {
@@ -395,10 +397,10 @@ function fMakeCommentSql($sHost,$i,$postcount,$sUserKey)
 			$text=preg_replace("/<br\/>/","\\r\\n",adjustUTF8(iconv("cp949","utf-8",substr($c,138,-16))));
 			if(preg_match('/^(.*)<\/div><\/div>/',$text,$aMatch)) {$text=$aMatch[1];} //마지막 코멘트 체크
 
-         $name=escape_string($name);
-         $text=escape_string($text);
+         $name=fEscapeString($name);
+         $text=fEscapeString($text);
 
-$url=escape_string($url);
+$url=fEscapeString($url);
 $sTemp="<comment>";
 $sTemp.="<commenter>";
 $sTemp.="<name>".$name."</name>";
@@ -426,10 +428,16 @@ $sTemp.="</comment>";
 
 
 
+//Function fMakeTrackbackString
+//주어진 포스트의 트랙백를 처리합니다.
+//http://(url).egloos.com/tXXXXXX를 읽어와서 처리하는 형식입니다.
+//Tab으로 문서를 구분해서 읽습니다.
+//처리한 트랙백을 하나씩 xml형식의 String으로 만듭니다.
+//String의 Array를 돌려줍니다.
 
-function fMakeTrackbackSql($sHost,$i,$postcount,$sUserKey)
+function fMakeTrackbackString($sHost,$i,$postcount,$sUserKey)
 	{
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+	$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 	if (!$fd) {
 		echo "$errstr ($errno)<br>\n";
 	} else {
@@ -472,10 +480,10 @@ function fMakeTrackbackSql($sHost,$i,$postcount,$sUserKey)
 			$sTitle=adjustUTF8(iconv("cp949","utf-8",$sTitle));
 			$sContent=adjustUTF8(iconv("cp949","utf-8",$sContent));
 
-	      $sContent=escape_string($sContent);
-         $sUrl=escape_string($sUrl);
-	      $sBlogName=escape_string($sBlogName);
-	      $sTitle=escape_string($sTitle);
+	      $sContent=fEscapeString($sContent);
+         $sUrl=fEscapeString($sUrl);
+	      $sBlogName=fEscapeString($sBlogName);
+	      $sTitle=fEscapeString($sTitle);
 
 
 $sTemp="<trackback>";
@@ -493,6 +501,9 @@ $sTemp.="</trackback>";
 		return $rt;
 	}
 
+//Function fgett
+//이 함수는 Tab문자로 문자열을 짤라서 파일에서 읽어옵니다.
+//코멘트와 트랙백의 처리를 위해서 만들었습니다.
 
 function fgett($fd) {
 		$rt="";
@@ -504,7 +515,11 @@ function fgett($fd) {
 		return $rt;
 	}
 
-function escape_string($sString) {
+//Function fEscapeString
+//이 함수는 JavaScript에서 Escape하기 위해서 바꾼 문자열을 다시 원 상태로 돌린 다음
+//xml에서 정상적으로 처리될수 있도록 문자열을 다시 바꿉니다.
+
+function fEscapeString($sString) {
         $sString=str_replace("\\r\\n","\n",$sString);
         $sString=str_replace("&amp;","&",$sString);
         $sString=str_replace("&#039;","'",$sString);
@@ -514,6 +529,10 @@ function escape_string($sString) {
 	$sString=stripslashes($sString);
 	return htmlspecialchars($sString);
 }
+
+//Function wget
+//이 함수는 특정 url의 파일을 읽어서 fp에 저장합니다.
+// 파일의 길이를 돌립니다.
 
 function wget($url,$fp) {
 	$sIpPds="211.239.119.179";
@@ -533,22 +552,19 @@ function wget($url,$fp) {
 	}
 	$fd = fsockopen ($sIp, 80, $errno, $errstr, 30);
 	if (!$fd) {
-		echo "$errstr ($errno)<br>\n";
-		exit(0);
+		Return False;
 	} else {
 		fputs ($fd, "GET ".$uri." HTTP/1.1\r\nHost: ".$sHost."\r\n\r\n");
 	}
-	$xxx=fopen ($fp,"w");
+	$xxx=@fopen ($fp,"w");
 	if (!$xxx) {
-		echo "$errstr ($errno)<br>\n";
-		exit(0);
+		Return False;
 	}
 	while(!feof($fd)) {
 		$buffer=fgets($fd);
-		if(strpos($buffer,"Content-Length")!==false) {$iLength=substr($buffer,16);}
+		if(strpos($buffer,"Content-Length")!==false) {$iLength=(int)substr($buffer,16);}
 		if($buffer=="\r\n") {break;}
 	}
-	$iLength=(int)$iLength;
 	for($i=0;$i<$iLength;$i++) {
 		fwrite($xxx,fgetc($fd));
 	}
@@ -556,7 +572,9 @@ function wget($url,$fp) {
 	return $iLength;
 }
 
-function init(){
+//Function fInit
+//이 함수는 기본 파일들을 만들고 카테고리등을 정리합니다.
+function fInit(){
 	set_time_limit(0);
 	setlocale(LC_TIME, "C");
 	header("Content-Type: text/xml;charset=ISO-8859-1");
@@ -582,7 +600,7 @@ function init(){
 	}
 
 	//sBlogid
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+	$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 	if (!$fd) {
 		return 2;
 	} else {
@@ -600,10 +618,8 @@ function init(){
 	fclose($fd);
 
 
-
-
 	//블로그 제목 및 아이콘 다운로드
-        $fd = @fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+        $fd = @fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
         if (!$fd) {
                 return 2;
         } else {
@@ -629,7 +645,7 @@ function init(){
         fclose($fd);
 
 	//글 관리 첫 페이지 다운로드
-	$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+	$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 	if (!$fd) {
 		return 2;
 	} else {
@@ -697,7 +713,7 @@ function init(){
 		$iPage++;
 		if ($iLeftPost<=0) { break; }
 
-		$fd = fsockopen ("211.239.119.245", 80, $errno, $errstr, 30);
+		$fd = fsockopen (EGLOOS_WWW_IP, 80, $errno, $errstr, 30);
 		if (!$fd) {
 			return $errno;
 		} else {
@@ -705,7 +721,7 @@ function init(){
 		}
 	}
 
-	$oConfigFile=fopen ("./bgloos_config.php","w");
+	$oConfigFile=@fopen ("./bgloos_config.php","w");
 	if (!$oConfigFile) {
 		return 1;
 	}
@@ -726,19 +742,16 @@ function init(){
    fwrite($oConfigFile,"\$iResizeWidth=\"".($iResizeWidth?$iResizeWidth:0)."\";\n");
 	fwrite($oConfigFile,"?>\n");
 	fclose($oConfigFile);
-
-//	wget ($oFileOut,$tp[0],$tp[1]);
-	$xxx=fopen ("./bgloos.xml","w");
+	$xxx=@fopen ("./bgloos.xml","w");
 	fwrite($xxx,"<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n");
 	fwrite($xxx,"<blog type=\"tattertools/1.0\" migrational=\"true\">\n");
-//<setting><title>님하는 어느 별에서 왔심?</title><description>테스트</description><banner><name>175040.jpg</name><content>
 	fwrite($xxx,"<setting>\n");
-	fwrite($xxx,"<title>".escape_string(adjustUTF8(iconv('cp949','utf-8',$sBlogTitle)))."</title>\n");
-	fwrite($xxx,"<description>".escape_string(adjustUTF8(iconv('cp949','utf-8',$sBlogDesc)))."</description>\n");
+	fwrite($xxx,"<title>".fEscapeString(adjustUTF8(iconv('cp949','utf-8',$sBlogTitle)))."</title>\n");
+	fwrite($xxx,"<description>".fEscapeString(adjustUTF8(iconv('cp949','utf-8',$sBlogDesc)))."</description>\n");
    fwrite($xxx,"<banner><name>175040.jpg</name><content>\n");
 
    $iLength=@wget($sIconUrl,"./bgloos_temp.xxx");
-	$fp = fopen("./bgloos_temp.xxx", 'r');
+	$fp = @fopen("./bgloos_temp.xxx", 'r');
 	while (!feof($fp)) {
 		fwrite($xxx,base64_encode(fread($fp, 3 * 1024)));
 	}
@@ -766,7 +779,7 @@ function auth($datastream) {
 	"Content-Type: application/x-www-form-urlencoded\r\n".
 	"Content-Length: $contentlength\r\n\r\n".
 	"$reqbody\r\n";
-	$socket = fsockopen("211.239.119.245", 80, $errno, $errstr);
+	$socket = fsockopen(EGLOOS_WWW_IP, 80, $errno, $errstr);
 	if (!$socket)
 	{
 		$result["errno"] = $errno;
@@ -787,8 +800,9 @@ function auth($datastream) {
 
 
 
-
-function start_index() {
+// Function fShowIndex
+// Index HTML파일을 출력
+function fShowIndex() {
 	header("Content-Type: text/html;charset=UTF-8");
 	header("Cache-Control: no-store, no-cache, must-revalidate");
 ?>
@@ -803,12 +817,14 @@ function start_index() {
 			var centerCell;
 			var size=40;
 			var increment = 100/size;
+
 			function pollTaskmaster() {
 				var url = "b002.php?action=getpost&postid=" + messageHash;
 				initRequest(url);
 				req.onreadystatechange = processPollRequest;
 				req.send(null);
 			}
+
 			function processPollRequest() {
 				if (req.readyState == 4) {
 					if (req.status == 200) {
@@ -825,7 +841,7 @@ function start_index() {
 					}
 					window.status = "총 " + totalpost + "개의 글 중에서 " + messageHash + "번째 글 처리중......";    
 					var idiv = window.document.getElementById("debug");
-				idiv.innerHTML = "Debug : <a href=\"b002.php?postid=" + messageHash + "\">b002.php?postid=" + messageHash + "</a>";
+				idiv.innerHTML = "Debug : <a href=\"b002.php?action=getpost&postid=" + messageHash + "\">b002.php?action=getpost&postid=" + messageHash + "</a>";
 					if (percentHash < 100) {
 						setTimeout("pollTaskmaster()", 50);
 					} else {
@@ -837,6 +853,7 @@ function start_index() {
 					}
 				}
 			}
+
 			function initRequest(url) {
 				if (window.XMLHttpRequest) {
 					req = new XMLHttpRequest();
@@ -846,6 +863,7 @@ function start_index() {
 				}
 				req.open("GET", url, true);
 			}
+
 			function submitTask() {
             var egloospass = window.document.getElementById("egloospass").value;
             var egloosid = window.document.getElementById("egloosid").value;
@@ -911,7 +929,7 @@ function start_index() {
 				var centerCellName;
 				var tableText = "";
 				for (x = 0; x < size; x++) {
-					tableText += "<td id=\"progress_" + x + "\" width=\"10\" height=\"10\" bgcolor=\"blue\"/>";
+					tableText += "<td id=\"progress_" + x + "\" width=\"10\" height=\"10\" style=\"background:#f39\"/>";
 						if (x == (size/2)) {
 							centerCellName = "progress_" + x;
 						}
@@ -933,45 +951,96 @@ function start_index() {
 					for (x = 0; x < size; x++) {
 						var cell = window.document.getElementById("progress_" + x);
 						if ((cell) && percentage/x < increment) {
-							cell.style.backgroundColor = "blue";
+							cell.style.backgroundColor = "#388";
 						} else {
-							cell.style.backgroundColor = "red";
+							cell.style.backgroundColor = "#235";
 						}      
 					}
 				}
 </script>
+<style type='text/css'>
+     a{ color:#f39;text-decoration:none; border-bottom:1px dotted gray; }
+body {font-family:Verdana,sans-serif; color: #235;}
+h2 {font-family:Tahoma,sans-serif; }
+</style>
 <title>bgloos002</title>
 </head>
 <body>
-<h1>bgloos 002</h1>
+<h1 style="text-align:center;"><a href="<?php echo $_SERVER["PHP_SELF"]?>">
+<span style="color:#f39">b</span>
+<span style="color:#f4A">g</span>
+<span style="color:#f5B">l</span>
+<span style="color:#f6C">o</span>
+<span style="color:#f7D">o</span>
+<span style="color:#f8E">s</span>
+&nbsp;
+<span style="color:#457">0</span>
+<span style="color:#246">0</span>
+<span style="color:#235">2</span></a>
+</h1>
+<h2>안내</h2>
 <hr/>
-<p>
-이글루-&gt;태터툴즈<br>알파
-</p>
+<ul>
+<li>bgloos002는 <a href="http://www.egloos.com">egloos.com</a>의 블로그를 <a href="http://www.tattertools.com">태터툴즈</a> 1.0.2이상에서 읽기가 가능한 xml형식의 백업파일을 제작해 주는 프로그램입니다.</li>
+<li>이 프로그램은 <a href="http://www.gnu.org/copyleft/gpl.html">GPL</a>입니다.</li>
+<li>Project Homepage : <a href="http://bgloos.kldp.net">http://bgloos.kldp.net</a></li>
+</ul>
 <div id="input_form">
+<h2>Default Input</h2>
+<hr/>
 <!-- 폼의 시작 -->
 <form action="#" id=iform>
-egloos ID : <input type="text" name="egloosid" id="egloosid"/><br/>
-egloos PASSWORD :<input type="password" name="egloospass" id="egloospass"/><br/>
-<br/>
-<br/>
-옵션
+<table>
+<tr>
+<td style="text-align:right">
+egloos ID</td><td><input type="text" style="width:200px;" name="egloosid" id="egloosid"/></td>
+</tr>
+<tr>
+<td style="text-align:right">egloos PASSWORD</td><td><input style="width:200px;" type="password" name="egloospass" id="egloospass"/></td>
+</tr>
+<tr>
+<td style="text-align:right">닉네임</td><td><input style="width:200px;" type="text" name="nickname" value="John Doe" /></td>
+</tr>
+</table>
+<h2>Option</h2>
 <hr/>
 <input id="id" type="checkbox" name="id" value="true" CHECKED/><label for=imagedownload>이미지 다운로드</label><br/>
+<div style="font-size:0.8em;padding-left:15px;">- 이 옵션을 체크하지 않으면 이미지를 이글루스 서버에서 읽어오게 됩니다. 다운로드 하지 않는 경우 홈페이지의 용량이 줄어들고, 이미지에서 생기는 트래픽을 줄일 수 있지만, 데이터의 안정성이 보장되지 않습니다.
+</div>
 <input id="ir" type="checkbox" name="ir" value="true" CHECKED/><label for=imageresize>이미지 리사이즈</label>
- (<input type="text" id="resizewidth" name="resizewidth" VALUE="500"/>px 이상을 리사이즈 합니다.)<br/>
-닉네임 : <input type="text" name="nickname" value="Test" /><br/>
-<input id="taskbutton" type="button" name="submittask" value="삽질 시작" onClick="submitTask()"/>
+ (<input type="text" id="resizewidth" name="resizewidth" VALUE="450" style="text-align:right;width:50px;"/>px 이상을 리사이즈 합니다.)<br/>
+ <div style="font-size:0.8em;padding-left:15px;">- 이 옵션은 태터툴즈의 기본 및 대부분의 스킨과 이글루스의 스킨의 차이점으로 인해 이미지가 깨지는 현상을 막기 위한 것입니다. 미리 사용할 태터툴즈 스킨의 폭을 확인한 후에 조정하시기 바랍니다. 다운로드 여부와는 관련이 없습니다.
+</div>
+ <br/>
+ <br/>
+<input id="taskbutton"  style="border:solid 2px; border-color:#f39; background-color:#fEE; font-size:1.2em; width:200px; height:35px;"type="button" name="submittask" value="삽질 시작~" onClick="submitTask()"/>
 </form>
 <!-- 폼의 끝 -->
 </div>
 
 <div id="task_id"></div><br/>
 <div id="progress"></div>
-<div id="debug"></div>
+<div id="debug" style="display:none"></div>
 </body>
 </html>
 <?php
 }
 
+// Function fEnd
+// 마무리 함수
+// 사용했던 파일들을 지우고
+// xml파일을 마감함.
+function fEnd(){
+	header("Content-Type: text/xml;charset=ISO-8859-1");
+	header("Cache-Control: no-store, no-cache, must-revalidate");
+	set_time_limit(0);
+	$xxx=@fopen ("./bgloos.xml","a");
+   if(!$xxx) {
+      return -1;
+   }
+	fwrite($xxx,"</blog>");
+	fclose($xxx);
+   @unlink("bgloos_config.php");
+   return 0;
+}
 ?>
